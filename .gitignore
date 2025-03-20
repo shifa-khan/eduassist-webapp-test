@@ -1,0 +1,25 @@
+# General Python files
+*.py[cod]
+__pycache__/
+*.py,cover
+*.so
+.Python
+*.pyc
+
+# Django stuff
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+.local_settings.py  # Add this if used for local configurations
+
+# Environment files
+.env  # Commonly used for environment variables
+
+# Virtual environment
+venv/
+ENV/
+
+# Operating system files
+.DS_Store
+Thumbs.db
