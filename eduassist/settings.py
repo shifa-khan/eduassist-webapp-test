@@ -122,11 +122,13 @@ REST_FRAMEWORK = {
 
 # Google Cloud Storage Settings
 credentials, project_id = default()
-GS_CREDENTIALS = credentials 
+GS_CREDENTIALS = credentials
 DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
-GS_FILE_OVERWRITE = False
 GS_BUCKET_NAME = "eduassist-storage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
+
+# This may help with the random filename issue
+GS_FILE_OVERWRITE = False
 
 
 

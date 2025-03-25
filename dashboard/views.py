@@ -24,13 +24,16 @@ from django.views.decorators.csrf import csrf_exempt
 import openai
 import json
 from django.conf import settings
-import logging
 from storages.backends.gcloud import GoogleCloudStorage
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from google.cloud import storage
 import datetime
 from django.middleware.csrf import get_token
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+import logging
+logger = logging.getLogger(__name__)
 
 
 
@@ -119,133 +122,71 @@ def logout_view(request):
 
 
 # USER-SPECIFIC DASHBOARD VIEW
-@ensure_csrf_cookie  # ✅ Ensures CSRF cookie is set on page load
+@ensure_csrf_cookie
 @login_required
 def user_dashboard(request, username):
     """User-specific dashboard."""
     if request.user.username != username:
         return redirect('login')  # Prevents unauthorized access
 
+    # For initial GET requests and refresh
     user_files = UploadedFile.objects.filter(user=request.user)
     form = FileUploadForm()
 
+    # Handle form submission
     if request.method == "POST":
         form = FileUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            uploaded_file = form.save(commit=False)
-            uploaded_file.user = request.user
-            uploaded_file.save()
-            return redirect('user_dashboard', username=request.user.username)
-
+            try:
+                uploaded_file = form.save(commit=False)
+                uploaded_file.user = request.user
+                uploaded_file.save()
+                print(f"File uploaded to: {uploaded_file.file.url}")
+                
+                # Redirect to the same page (as a GET request)
+                return HttpResponseRedirect(request.path)
+            except Exception as e:
+                print(f"Error uploading file: {str(e)}")
+    
+    # Render page (for both initial GET and after redirect)
     response = render(request, 'dashboard/dashboard.html', {"files": user_files, "form": form})
-    response.set_cookie("csrftoken", get_token(request))  # ✅ Explicitly set CSRF token
+    response.set_cookie("csrftoken", get_token(request))
     return response
 
-
-# FILE UPLOAD VIEW
-'''
-def upload_view(request):
-    """Allow user to upload files to Google Cloud Storage."""
-    try:
-        auth = JWTAuthentication()
-        user, _ = auth.authenticate(request)
-
-        if user is None:
-            return redirect('login')
-
-        form = FileUploadForm(request.POST, request.FILES)
-
-        if request.method == "POST":
-            print("Upload request received with files:", request.FILES)
-            if form.is_valid():
-                uploaded_file = form.save(commit=False)
-                uploaded_file.user = user
-                
-                # Force Google Cloud Storage (GCS)
-                uploaded_file.file.storage = default_storage
-                
-                # Ensure correct upload path
-                uploaded_file.file.name = f"uploads/{uploaded_file.file.name}"
-
-                uploaded_file.save()
-                print("File uploaded successfully:", uploaded_file.file.url)
-
-                return redirect('user_dashboard', username=user.username)
-
-        return render(request, 'dashboard/upload.html', {"form": form})
-
-    except AuthenticationFailed:
-        return redirect('/login/')
-        
-def upload_view(request):
-    """Allow user to upload files."""
-    try:
-        auth = JWTAuthentication()
-        user, _ = auth.authenticate(request)
-
-        if user is None:
-            return redirect('login')
-
-        form = FileUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            uploaded_file = form.save(commit=False)
-            uploaded_file.user = user
-            uploaded_file.save()
-            return redirect('user_dashboard', username=user.username)
-
-        return render(request, 'dashboard/upload.html', {"form": form})
-
-    except AuthenticationFailed:
-        return redirect('/login/')
-'''
-
-def upload_view(request):
-    """Allow user to upload files to Google Cloud Storage."""
-    try:
-        auth = JWTAuthentication()
-        user, _ = auth.authenticate(request)
-
-        if user is None:
-            return redirect('login')
-
-        form = FileUploadForm()
-
-        if request.method == "POST":
-            form = FileUploadForm(request.POST, request.FILES)
-            if form.is_valid():
-                uploaded_file = form.save(commit=False)
-                uploaded_file.user = user
-
-                # ✅ Explicitly use GCS storage
-                uploaded_file.file.name = default_storage.save(uploaded_file.file.name, uploaded_file.file)
-
-                uploaded_file.save()
-                return redirect('user_dashboard', username=user.username)
-
-        return render(request, 'dashboard/upload.html', {"form": form})
-
-    except AuthenticationFailed:
-        return redirect('/login/')
 
 # SERVE FILE VIEW (Restricted to File Owner)
 def serve_file(request, file_id):
     """Allow only the file owner to access their file."""
     try:
-        auth = JWTAuthentication()
-        auth_user = auth.authenticate(request)
+        # First check if user is authenticated via session
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            # Fall back to JWT if session auth is not available
+            auth = JWTAuthentication()
+            auth_user = auth.authenticate(request)
+            if not auth_user:
+                return redirect('login')
+            user, _ = auth_user
 
-        if not auth_user:
-            return redirect('login')
-
-        user, _ = auth_user  
-
-        file = UploadedFile.objects.get(id=file_id)
+        file = get_object_or_404(UploadedFile, id=file_id)
+        
+        # Check permissions
         if file.user != user:
             return HttpResponseForbidden("You do not have permission to access this file.")
-        return redirect(file.file.url)
-
+        
+        # Create a public URL that works without signing
+        bucket_name = settings.GS_BUCKET_NAME
+        file_path = file.file.name
+        
+        # Create the public URL
+        public_url = f"https://storage.googleapis.com/{bucket_name}/{file_path}"
+        
+        # Redirect to the public URL
+        return redirect(public_url)
+        
     except AuthenticationFailed:
-        return redirect('/login/')
+        return redirect('login')
     except UploadedFile.DoesNotExist:
         return HttpResponseForbidden("File not found.")
 
@@ -262,16 +203,17 @@ def delete_file_view(request, file_id):
         user_data = auth.authenticate(request)
         
         if user_data is None:
-            return JsonResponse({"error": "User not authenticated"}, status=403)
-        
-        user, _ = user_data  
+            # Fallback to session authentication since we're already using @login_required
+            user = request.user
+        else:
+            user, _ = user_data  
         
         # Retrieve the file or return 404 if it doesn't exist
         file = get_object_or_404(UploadedFile, id=file_id, user=user)
 
         # Delete file from GCS
-        file.file.delete()  # to deletes from GCS
-        file.delete()       # to remove from database
+        file.file.delete()  # Deletes from GCS
+        file.delete()       # Removes from database
         
         return JsonResponse({"message": "File deleted successfully"}, status=200)
 
@@ -279,6 +221,8 @@ def delete_file_view(request, file_id):
         return JsonResponse({"error": "Invalid credentials"}, status=403)
     except UploadedFile.DoesNotExist:
         return JsonResponse({"error": "File not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 '''

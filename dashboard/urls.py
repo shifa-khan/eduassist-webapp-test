@@ -18,12 +18,10 @@ urlpatterns = [
     path('dashboard/<str:username>/', views.user_dashboard, name='user_dashboard'),  
 
     # File Upload and Secure File Access
-    path('upload/', views.upload_view, name='upload'),
     path('file/<int:file_id>/', views.serve_file, name='serve_file'),
 
     # Delete file
     path('delete-file/<int:file_id>/', views.delete_file_view, name='delete_file'),
-    #path('file-url/<int:file_id>/', views.get_file_url, name='get_file_url'),
 
     # Chatbot API Endpoint
     path('dashboard/chatbot/', views.chatbot_response, name='chatbot_response'),
