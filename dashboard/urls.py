@@ -24,7 +24,8 @@ urlpatterns = [
     path('delete-file/<int:file_id>/', views.delete_file_view, name='delete_file'),
 
     # Chatbot API Endpoint
-    path('dashboard/chatbot/', views.chatbot_response, name='chatbot_response'),
+    path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
+    path('api/chat-history/', views.chat_history, name='chat_history'),
 
 ]
 

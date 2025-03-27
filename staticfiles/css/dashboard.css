@@ -1,0 +1,401 @@
+/* CSS FOR DASHBOARD */
+
+
+    /* Tab styling */
+    .nav-tabs {
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .nav-tabs .nav-link {
+        margin-bottom: -2px;
+        border: none;
+        color: #495057;
+        font-weight: 500;
+        padding: 12px 20px;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        color: var(--primary-color);
+        border: none;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        background-color: transparent;
+        border: none;
+    }
+    
+    .nav-tabs .nav-link.active::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background-color: var(--primary-color);
+        border-radius: 3px 3px 0 0;
+    }
+    
+    /* File list styling */
+    .file-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .file-item {
+        background-color: white;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+    }
+    
+    .file-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .file-icon {
+        font-size: 24px;
+        margin-right: 15px;
+        color: var(--primary-color);
+    }
+    
+    .file-link {
+        color: #212529;
+        text-decoration: none;
+        font-weight: 500;
+        flex-grow: 1;
+    }
+    
+    .file-link:hover {
+        color: var(--primary-color);
+    }
+    
+    /* Upload form styling */
+    .upload-section {
+        background-color: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-top: 30px;
+        margin-bottom: 40px;
+    }
+    
+    .upload-section h3 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .upload-section h3 i {
+        margin-right: 10px;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #495057;
+    }
+    
+    .custom-file-input {
+        padding: 10px;
+        border: 2px dashed #ced4da;
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .custom-file-input:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .category-select {
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid #ced4da;
+    }
+    
+    .upload-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        margin-top: 15px;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .upload-btn i {
+        margin-right: 8px;
+    }
+    
+    .upload-btn:hover {
+        background-color: var(--secondary-color);
+        transform: translateY(-2px);
+    }
+
+    /* Delete Button */
+    .delete-file {
+    margin-left: 10px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.delete-file:hover {
+    background-color: #c82333;
+    transform: scale(1.05);
+}
+    
+    /* Welcome section styling */
+    .welcome-section {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-section::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 150px;
+        height: 150px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(40px, -40px);
+    }
+    
+    .welcome-section h2 {
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .welcome-section p {
+        opacity: 0.9;
+        font-size: 1.1rem;
+        margin-bottom: 0;
+    }
+    
+    /* Empty state styling */
+    .empty-state {
+        text-align: center;
+        padding: 30px;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.6;
+    }
+    
+    /* Chatbot styling */
+    #chatbot-icon {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+    
+    #chatbot-icon:hover {
+        transform: scale(1.1);
+    }
+    
+    #chatbot-window {
+        position: fixed;
+        bottom: 100px;
+        right: 25px;
+        width: 350px;
+        height: 450px;
+        background-color: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        display: none;
+        flex-direction: column;
+        border: none;
+        overflow: hidden;
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+    
+    #chatbot-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    #chatbot-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+    
+    #chatbot-close:hover {
+        opacity: 1;
+    }
+    
+    #chatbot-messages {
+        flex-grow: 1;
+        padding: 15px;
+        overflow-y: auto;
+        height: 330px;
+        background: #f8f9fa;
+    }
+    
+    .user-message, .bot-message {
+        max-width: 80%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        margin-bottom: 15px;
+        word-wrap: break-word;
+    }
+    
+    .user-message {
+        background-color: var(--primary-color);
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .bot-message {
+        background-color: white;
+        color: #212529;
+        margin-right: auto;
+        border-bottom-left-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+    
+    #chatbot-input {
+        display: flex;
+        border-top: 1px solid #f1f1f1;
+        padding: 10px;
+    }
+    
+    #chatbot-user-input {
+        flex-grow: 1;
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 25px;
+        outline: none;
+        font-size: 0.95rem;
+        transition: border-color 0.3s;
+    }
+    
+    #chatbot-user-input:focus {
+        border-color: var(--primary-color);
+    }
+    
+    #chatbot-send {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-left: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+    
+    #chatbot-send:hover {
+        background-color: var(--secondary-color);
+        transform: scale(1.05);
+    }
+    
+    /* Typing indicator animation */
+    .typing-indicator {
+        display: inline-flex;
+        align-items: center;
+        margin: 10px 0;
+    }
+    
+    .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        background-color: #bbb;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 2px;
+        animation: typing 1.4s infinite both;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+        100% {
+            transform: translateY(0);
+        }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .welcome-section {
+            padding: 20px;
+        }
+        
+        #chatbot-window {
+            width: 90%;
+            right: 5%;
+            left: 5%;
+        }
+    }

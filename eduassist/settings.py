@@ -14,7 +14,11 @@ from pathlib import Path
 import os
 from google.auth import default
 from google.oauth2 import service_account
-from openai import OpenAI
+from dotenv import load_dotenv
+
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -25,7 +29,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-1zb#20+f2%l4(z5jz*1s1n030i_2u2*j)0a1jl@#uw5*xuuus&'
+SECRET_KEY = os.getenv("SECRET_KEY")
+#SECRET_KEY = 'django-insecure-1zb#20+f2%l4(z5jz*1s1n030i_2u2*j)0a1jl@#uw5*xuuus&'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -39,13 +44,10 @@ ALLOWED_HOSTS = ['127.0.0.1', '8000-w-shifadev-m7bf2a9k.cluster-lrtwds5errg7iw72
 CSRF_TRUSTED_ORIGINS = ['https://8000-w-shifadev-m7bf2a9k.cluster-lrtwds5errg7iw72fulag7kd5y.cloudworkstations.dev']
 
 
-#OPENAI API
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Check if the API key is set
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is not set.")
-
+### AI CHATBOT DETAILS
+# Groq API configuration
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
 # Application definition
 
@@ -100,12 +102,12 @@ WSGI_APPLICATION = 'eduassist.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': '+U{YPm|(Oh)[Och[',
-        'HOST': '10.69.144.3',
-        'PORT': '5432',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME', 'postgres'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -126,9 +128,7 @@ GS_CREDENTIALS = credentials
 DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 GS_BUCKET_NAME = "eduassist-storage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
-
-# This may help with the random filename issue
-GS_FILE_OVERWRITE = False
+GS_FILE_OVERWRITE = False # to help with the random filename issue
 
 
 
@@ -162,15 +162,18 @@ USE_I18N = True
 
 USE_TZ = True
 
-CSRF_COOKIE_HTTPONLY = False  # ✅ Allows JavaScript to access the CSRF cookie
-CSRF_COOKIE_SAMESITE = "Lax"  # ✅ Ensures cookies are sent with same-origin requests
-CSRF_COOKIE_SECURE = False    # ✅ Change to True if using HTTPS
+CSRF_COOKIE_HTTPONLY = False  # Allows JS to access the CSRF cookie
+CSRF_COOKIE_SAMESITE = "Lax"  # Ensures cookies are sent with same origin requests
+CSRF_COOKIE_SECURE = False    # Change to True if using HTTPS
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 #STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 
 # Default primary key field type

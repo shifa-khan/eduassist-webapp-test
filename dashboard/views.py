@@ -13,15 +13,13 @@ from django.contrib import messages
 from django.urls import reverse
 from django.http import HttpResponseForbidden
 from django.contrib.auth.decorators import login_required
-from .models import UploadedFile
+from .models import UploadedFile, ChatMessage
 from .forms import FileUploadForm
 from django.contrib.auth import logout
 from django.http import JsonResponse
 import os
 from django.core.files.storage import default_storage
 from django.views.decorators.csrf import csrf_exempt
-#from openai import OpenAI
-import openai
 import json
 from django.conf import settings
 from storages.backends.gcloud import GoogleCloudStorage
@@ -32,6 +30,9 @@ import datetime
 from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.http import HttpResponseRedirect
+from django.views.decorators.http import require_POST
+import requests
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ def delete_file_view(request, file_id):
         user_data = auth.authenticate(request)
         
         if user_data is None:
-            # Fallback to session authentication since we're already using @login_required
+            # Fallback to session authentication
             user = request.user
         else:
             user, _ = user_data  
@@ -211,9 +212,9 @@ def delete_file_view(request, file_id):
         # Retrieve the file or return 404 if it doesn't exist
         file = get_object_or_404(UploadedFile, id=file_id, user=user)
 
-        # Delete file from GCS
-        file.file.delete()  # Deletes from GCS
-        file.delete()       # Removes from database
+        # Delete file
+        file.file.delete()  # from GCS
+        file.delete()       # from database
         
         return JsonResponse({"message": "File deleted successfully"}, status=200)
 
@@ -225,84 +226,89 @@ def delete_file_view(request, file_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-'''
-# Ensure OpenAI API key is in settings.py
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
-logger = logging.getLogger(__name__)
+# ChatBot
+def get_groq_response(user_message):
+    """Get a response from Groq API."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": [
+                {"role": "system", "content": "You are an educational assistant helping faculty with syllabus improvement, question paper preparation, grading assessments, etc."},
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1024,
+        }
+        
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions", 
+            headers=headers, 
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            return f"I'm sorry, there was an error with the AI service. Please try again later."
+            
+        return response.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"I'm sorry, I encountered an error: {str(e)}"
+
+
+# ChatBot API
 @csrf_exempt
-def chatbot_response(request):
-    """Handle chatbot queries and return OpenAI-generated responses."""
-    logger.info("Chatbot view hit!")
-    if request.method == "POST":
-        try:
-            # Extract user message from the request
-            data = json.loads(request.body)
-            user_message = data.get("message", "")
+@require_POST
+def chatbot_api(request):
+    """API endpoint for chatbot interactions."""
+    try:
+        data = json.loads(request.body)
+        user_message = data.get("message", "")
+        
+        if not user_message:
+            return JsonResponse({"error": "Empty message"}, status=400)
+        
+        response_text = get_groq_response(user_message)
+        
+        # Save to database if user is authenticated
+        if request.user.is_authenticated:
+            try:
+                ChatMessage.objects.create(
+                    user=request.user,
+                    message=user_message,
+                    response=response_text
+                )
+            except Exception:
+                # Continue even if saving fails
+                pass
+        
+        return JsonResponse({"response": response_text})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON format"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-            if not user_message:
-                return JsonResponse({"error": "Empty message"}, status=400)
 
-            # ✅ Correct OpenAI API call for version 1.65.4
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an educational assistant helping faculty with syllabus improvement, question paper preparation, grading assessments, etc."},
-                    {"role": "user", "content": user_message}
-                ]
-            )
-
-            chatbot_reply = response.choices[0].message.content  # ✅ Extract response correctly
-            return JsonResponse({"reply": chatbot_reply})
-
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-
-    return JsonResponse({"error": "Invalid request method"}, status=405)
-'''
-# Ensure OpenAI API key is set
-client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-logger = logging.getLogger(__name__)
-@csrf_exempt  # ✅ Allows requests without CSRF validation
-def chatbot_response(request):
-    """Handle chatbot queries and return OpenAI-generated responses."""
+# Retrive chat history
+@login_required
+def chat_history(request):
+    """Retrieve chat history for the current user."""
+    chats = ChatMessage.objects.filter(user=request.user)
     
-    # ✅ Manually authenticate user before processing request
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "User not authenticated"}, status=401)
-
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            user_message = data.get("message", "")
-
-            if not user_message:
-                return JsonResponse({"error": "Empty message"}, status=400)
-
-            print("📡 Sending request to OpenAI:", user_message)
-
-            # OpenAI API request
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an educational assistant helping faculty with syllabus improvement, question paper preparation, grading assessments, etc."},
-                    {"role": "user", "content": user_message}
-                ]
-            )
-
-            chatbot_reply = response.choices[0].message.content  
-            print("✅ OpenAI Response:", chatbot_reply)  
-            return JsonResponse({"reply": chatbot_reply})
-
-        except openai.OpenAIError as e:
-            print("❌ OpenAI API Error:", str(e))
-            return JsonResponse({"error": "OpenAI API Error: " + str(e)}, status=500)
-
-        except json.JSONDecodeError:
-            print("❌ JSON Decode Error - Invalid Request")
-            return JsonResponse({"error": "Invalid JSON format"}, status=400)
-
-        except Exception as e:
-            print("❌ General Server Error:", str(e))
-            return JsonResponse({"error": "Server Error: " + str(e)}, status=500)
-
-    return JsonResponse({"error": "Invalid request method"}, status=405)
+    # Convert to list of dicts for JSON response
+    chat_list = [
+        {
+            'id': chat.id,
+            'message': chat.message,
+            'response': chat.response,
+            'timestamp': chat.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        for chat in chats
+    ]
+    
+    return JsonResponse({'chats': chat_list})
