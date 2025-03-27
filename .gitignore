@@ -14,7 +14,7 @@ db.sqlite3-journal
 .local_settings.py  # Add this if used for local configurations
 
 # Environment files
-.env  # Commonly used for environment variables
+.env
 
 # Virtual environment
 venv/
@@ -22,4 +22,4 @@ ENV/
 
 # Operating system files
 .DS_Store
-Thumbs.db.env
+Thumbs.db
