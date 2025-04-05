@@ -399,3 +399,90 @@
             left: 5%;
         }
     }
+
+    /* File upload container */
+.chat-file-upload {
+    padding: 0 10px;
+    margin-bottom: 10px;
+}
+
+/* Selected files list */
+.selected-files-list {
+    margin-top: 5px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+/* Individual selected file */
+.selected-file {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+.selected-file span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 85%;
+}
+
+.selected-file button {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 5px;
+}
+
+.selected-file button:hover {
+    color: #555;
+}
+
+/* File error message */
+.file-error {
+    color: #d9534f;
+    font-size: 12px;
+    margin: 5px 0;
+    padding: 0 5px;
+}
+
+/* File type indicator */
+.file-type-icon {
+    margin-right: 5px;
+    font-size: 14px;
+}
+
+.file-type-pdf { color: #e74c3c; }
+.file-type-doc { color: #3498db; }
+.file-type-xls { color: #2ecc71; }
+.file-type-txt { color: #95a5a6; }
+
+/* Attach file button */
+#chatbot-attach-file {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 8px;
+}
+
+#chatbot-attach-file:hover {
+    color: #4361ee;
+}
+
+/* File attachments in messages */
+.attached-files {
+    display: block;
+    font-size: 11px;
+    color: #777;
+    margin-top: 4px;
+}

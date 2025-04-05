@@ -129,6 +129,7 @@ DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 GS_BUCKET_NAME = "eduassist-storage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
 GS_FILE_OVERWRITE = False # to help with the random filename issue
+GS_QUERYSTRING_AUTH = False
 
 
 

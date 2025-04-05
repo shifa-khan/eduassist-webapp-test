@@ -1,7 +1,5 @@
 // JS FOR DASHBOARD
 
-
-    // File upload interaction
 document.addEventListener('DOMContentLoaded', function() {
     // File upload functionality
     const fileInput = document.getElementById('id_file');
@@ -64,6 +62,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Global variable to store currently selected chat files
+    window.selectedChatFiles = [];
+
     // Chatbot functionality
     const chatIcon = document.getElementById("chatbot-icon");
     const chatWindow = document.getElementById("chatbot-window");
@@ -71,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatInput = document.getElementById("chatbot-user-input");
     const chatSend = document.getElementById("chatbot-send");
     const messagesDiv = document.getElementById("chatbot-messages");
+    const chatFileInput = document.getElementById("chat-file-input");
+    const chatAttachButton = document.getElementById("chatbot-attach-file");
 
     // Get CSRF token function
     function getCSRFToken() {
@@ -119,15 +122,187 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Send message function
+    // Function to handle file upload for chat
+    function uploadChatFile() {
+        // In your uploadChatFile function, add this logging
+        console.log("File type check:", fileExt, allowedTypes.includes(fileExt));
+        const errorElement = document.getElementById('file-upload-error');
+        const files = chatFileInput.files;
+        
+        // Reset error message
+        if (errorElement) {
+            errorElement.style.display = 'none';
+            errorElement.textContent = '';
+        }
+        
+        if (files.length === 0) {
+            return;
+        }
+        
+        const file = files[0];
+        
+        // Check file type (same as server-side check)
+        const allowedTypes = ['.txt', '.csv', '.md', '.pdf', '.docx', '.xlsx', '.pptx', '.jpg', '.jpeg', '.png'];
+        const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        if (!allowedTypes.includes(fileExt)) {
+            if (['.jpg', '.jpeg', '.png'].includes(fileExt)) {
+                console.log("This is an image file, trying to upload anyway");
+            } else {
+                if (errorElement) {
+                    errorElement.textContent = `File type ${fileExt} is not supported. Supported types: ${allowedTypes.join(', ')}`;
+                    errorElement.style.display = 'block';
+                }
+                chatFileInput.value = '';
+                return;
+            }
+        }
+        
+        // Check file size (5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            if (errorElement) {
+                errorElement.textContent = 'File size exceeds the maximum limit of 5MB';
+                errorElement.style.display = 'block';
+            }
+            chatFileInput.value = '';
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Show loading indicator
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'selected-file';
+        loadingEl.innerHTML = `<span>${file.name} (Uploading...)</span>`;
+        const selectedFilesEl = document.getElementById('selected-chat-files');
+        if (selectedFilesEl) {
+            selectedFilesEl.appendChild(loadingEl);
+        }
+        
+        fetch('/api/upload-chat-file/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove loading indicator
+            if (selectedFilesEl && loadingEl) {
+                selectedFilesEl.removeChild(loadingEl);
+            }
+            
+            if (data.error) {
+                if (errorElement) {
+                    errorElement.textContent = data.error;
+                    errorElement.style.display = 'block';
+                }
+                return;
+            }
+            
+            // Add file to selected files array
+            window.selectedChatFiles.push({
+                id: data.file_id,
+                name: data.file_name
+            });
+            
+            // Display selected file in UI
+            displaySelectedChatFiles();
+            
+            // Clear file input
+            chatFileInput.value = '';
+        })
+        .catch(error => {
+            // Remove loading indicator
+            if (selectedFilesEl && loadingEl) {
+                selectedFilesEl.removeChild(loadingEl);
+            }
+            
+            if (errorElement) {
+                errorElement.textContent = 'Error uploading file. Please try again.';
+                errorElement.style.display = 'block';
+            }
+            console.error('Error uploading file:', error);
+            chatFileInput.value = '';
+        });
+    }
+
+    // Function to display selected files in the chat UI
+    function displaySelectedChatFiles() {
+        const fileListElement = document.getElementById('selected-chat-files');
+        if (!fileListElement) return;
+        
+        fileListElement.innerHTML = '';
+        
+        window.selectedChatFiles.forEach(file => {
+            // Get file extension to show appropriate icon
+            const fileName = file.name.split('/').pop(); // Get just the filename
+            const fileExt = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+            let iconClass = 'fas fa-file';
+            
+            // Assign icon based on file type
+            if (fileExt === '.pdf') {
+                iconClass = 'fas fa-file-pdf file-type-pdf';
+            } else if (fileExt === '.docx') {
+                iconClass = 'fas fa-file-word file-type-doc';
+            } else if (fileExt === '.xlsx') {
+                iconClass = 'fas fa-file-excel file-type-xls';
+            } else if (fileExt === '.txt' || fileExt === '.md' || fileExt === '.csv') {
+                iconClass = 'fas fa-file-alt file-type-txt';
+            } else if (fileExt === '.jpg' || fileExt === '.jpeg' || fileExt === '.png') {
+                iconClass = 'fas fa-file-image';
+            }
+            
+            const fileElement = document.createElement('div');
+            fileElement.className = 'selected-file';
+            fileElement.innerHTML = `
+                <i class="${iconClass} file-type-icon"></i>
+                <span>${fileName}</span>
+                <button type="button" data-file-id="${file.id}">✕</button>
+            `;
+            
+            // Add click event for remove button
+            const removeBtn = fileElement.querySelector('button');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    const fileId = parseInt(this.getAttribute('data-file-id'));
+                    removeSelectedFile(fileId);
+                });
+            }
+            
+            fileListElement.appendChild(fileElement);
+        });
+    }
+
+    // Function to remove a selected file
+    function removeSelectedFile(fileId) {
+        window.selectedChatFiles = window.selectedChatFiles.filter(file => file.id !== fileId);
+        displaySelectedChatFiles();
+    }
+
+    // Updated Send message function
     function sendMessage() {
         const message = chatInput.value.trim();
         if (message === "") return;
 
+        // Get file IDs from selected files
+        const fileIds = window.selectedChatFiles.map(file => file.id);
+
         // Add user message to chat
         const userMessageDiv = document.createElement("div");
         userMessageDiv.className = "user-message";
-        userMessageDiv.textContent = message;
+        
+        // Create message content with file attachments if any
+        let messageContent = message;
+        if (window.selectedChatFiles.length > 0) {
+            messageContent += `<div class="attached-files">
+                <i class="fas fa-paperclip"></i> ${window.selectedChatFiles.length} file(s) attached
+            </div>`;
+        }
+        
+        userMessageDiv.innerHTML = messageContent;
         messagesDiv.appendChild(userMessageDiv);
 
         // Clear input
@@ -150,7 +325,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             },
-            body: JSON.stringify({ message: message })
+            body: JSON.stringify({ 
+                message: message,
+                file_ids: fileIds
+            })
         })
         .then(response => response.json())
         .then(data => {
@@ -159,10 +337,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add bot response
             const botMessageDiv = document.createElement("div");
             botMessageDiv.className = "bot-message";
-            botMessageDiv.textContent = data.response;
+            
+            // Format response with line breaks
+            botMessageDiv.innerHTML = data.response.replace(/\n/g, '<br>');
             messagesDiv.appendChild(botMessageDiv);
 
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Clear selected files after sending
+            window.selectedChatFiles = [];
+            displaySelectedChatFiles();
         })
         .catch(error => {
             messagesDiv.removeChild(typingIndicator);
@@ -207,6 +391,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Add file upload event listeners
+    if (chatFileInput) {
+        chatFileInput.addEventListener('change', uploadChatFile);
+    }
+    
+    if (chatAttachButton) {
+        chatAttachButton.addEventListener('click', function() {
+            chatFileInput.click();
+        });
+    }
 
     // Tab activation persistence with localStorage
     const tabLinks = document.querySelectorAll('.nav-tabs .nav-link');
@@ -214,7 +409,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set active tab based on localStorage or default to first tab
     const activeTab = localStorage.getItem('activeTab') || '#assignments';
     const tabToActivate = document.querySelector(`[href="${activeTab}"]`);
-    
     if (tabToActivate) {
         const tab = new bootstrap.Tab(tabToActivate);
         tab.show();

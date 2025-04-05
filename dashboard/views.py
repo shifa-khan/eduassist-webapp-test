@@ -32,6 +32,12 @@ from django.urls import reverse
 from django.http import HttpResponseRedirect
 from django.views.decorators.http import require_POST
 import requests
+import mimetypes
+from io import BytesIO
+import PyPDF2  
+import docx    
+from openpyxl import load_workbook  
+import re
 
 import logging
 logger = logging.getLogger(__name__)
@@ -259,30 +265,251 @@ def get_groq_response(user_message):
     except Exception as e:
         return f"I'm sorry, I encountered an error: {str(e)}"
 
+#######################################################
+## CHAT BOT FEATURE
+
+# Define allowed file types and size limits
+ALLOWED_FILE_TYPES = {
+    # Text files
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+    '.md': 'text/markdown',
+    # Document files
+    '.pdf': 'application/pdf',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    # Spreadsheets
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    # Presentations
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    # Add image files
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png'
+}
+
+# Maximum file size (5MB)
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+
+# Maximum tokens for LLM
+MAX_TOTAL_TOKENS = 7000
+MAX_FILE_TOKENS = 5000
+
+# Helper function for token estimation
+def estimate_tokens(text):
+    """Rough estimation of token count (4 chars ≈ 1 token)."""
+    return len(text) // 4
+
+
+# File content extraction
+def extract_file_content(file_obj):
+    """Extract text content from uploaded files."""
+    try:
+        # Get file extension
+        file_name = file_obj.file.name
+        file_ext = os.path.splitext(file_name)[1].lower()
+        
+        # Get file content
+        file_content = file_obj.file.read()
+        
+        # Check file size again as a precaution
+        if len(file_content) > MAX_FILE_SIZE:
+            return "[File too large for processing]"
+
+        # Image Files
+        if file_ext in ['.jpg', '.jpeg', '.png']:
+            return f"[This is an image file: {file_name}. The AI cannot directly see the image content, but can discuss it based on your description.]"
+        
+        # Text extraction based on file type
+        if file_ext == '.txt' or file_ext == '.md' or file_ext == '.csv':
+            # For text files, decode directly
+            return file_content.decode('utf-8', errors='ignore')
+            
+        elif file_ext == '.pdf':
+            try:
+                # For PDFs, use PyPDF2
+                pdf_reader = PyPDF2.PdfReader(BytesIO(file_content))
+                text = ""
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text() + "\n"
+                return text
+            except Exception as e:
+                logger.error(f"Error extracting PDF content: {str(e)}")
+                return "[Error extracting PDF content]"
+                
+        elif file_ext == '.docx':
+            try:
+                # For DOCX, use python-docx
+                doc = docx.Document(BytesIO(file_content))
+                text = "\n".join([para.text for para in doc.paragraphs if para.text])
+                return text
+            except Exception as e:
+                logger.error(f"Error extracting DOCX content: {str(e)}")
+                return "[Error extracting DOCX content]"
+                
+        elif file_ext == '.xlsx':
+            try:
+                # For Excel files, use openpyxl
+                workbook = load_workbook(BytesIO(file_content), read_only=True)
+                text = ""
+                # Get the first few sheets
+                for sheet_name in workbook.sheetnames[:3]:  # Limit to first 3 sheets
+                    sheet = workbook[sheet_name]
+                    text += f"Sheet: {sheet_name}\n"
+                    # Get first 100 rows and 20 columns max
+                    for row in list(sheet.rows)[:100]:
+                        row_values = [str(cell.value) if cell.value is not None else "" for cell in row[:20]]
+                        text += ", ".join(row_values) + "\n"
+                    text += "\n"
+                return text
+            except Exception as e:
+                logger.error(f"Error extracting Excel content: {str(e)}")
+                return "[Error extracting Excel content]"
+                
+        elif file_ext == '.pptx':
+            # For PPTX, more complex extraction would be needed
+            # Using a placeholder for now
+            return "[This is a PowerPoint file. Text extraction requires additional processing.]"
+            
+        else:
+            return f"[File type {file_ext} not supported for content extraction]"
+            
+    except Exception as e:
+        logger.error(f"Error extracting content from file: {str(e)}")
+        return "[Error processing file]"
+    finally:
+        # Reset file pointer position
+        if hasattr(file_obj.file, 'seek'):
+            file_obj.file.seek(0)
+
+# Handle file uploads for chat
+@csrf_exempt
+@login_required
+def upload_chat_file(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
+    
+    try:
+        if 'file' not in request.FILES:
+            return JsonResponse({'error': 'No file provided'}, status=400)
+        
+        uploaded_file = request.FILES['file']
+
+        ## Debug
+        file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if file_ext in ['.jpg', '.jpeg', '.png']:
+            print(f"Processing image file: {uploaded_file.name}")
+        
+        # Check file size
+        if uploaded_file.size > MAX_FILE_SIZE:
+            return JsonResponse({
+                'error': f'File size exceeds the maximum limit of 5MB'
+            }, status=400)
+        
+        # Check file type
+        file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if file_ext not in ALLOWED_FILE_TYPES:
+            return JsonResponse({
+                'error': f'File type {file_ext} is not supported. Supported types: {", ".join(ALLOWED_FILE_TYPES.keys())}'
+            }, status=400)
+        
+        # Form processing
+        form = FileUploadForm({'category': 'chatbot_files'}, {'file': uploaded_file})
+        
+        if form.is_valid():
+            file_obj = form.save(commit=False)
+            file_obj.user = request.user
+            file_obj.save()
+            
+            # Create a public URL manually
+            bucket_name = settings.GS_BUCKET_NAME
+            file_path = file_obj.file.name
+            public_url = f"https://storage.googleapis.com/{bucket_name}/{file_path}"
+            
+            return JsonResponse({
+                'file_id': file_obj.id,
+                'file_name': file_obj.file.name,
+                'file_url': public_url
+            })
+        else:
+            return JsonResponse({'error': f'Invalid form data: {form.errors}'}, status=400)
+    
+    except Exception as e:
+        logger.error(f"Error uploading chat file: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 # ChatBot API
 @csrf_exempt
 @require_POST
 def chatbot_api(request):
-    """API endpoint for chatbot interactions."""
+    """API endpoint for chatbot interactions with file support."""
     try:
         data = json.loads(request.body)
         user_message = data.get("message", "")
+        file_ids = data.get("file_ids", [])
         
         if not user_message:
             return JsonResponse({"error": "Empty message"}, status=400)
         
-        response_text = get_groq_response(user_message)
+        # Get files content for context if file_ids are provided
+        file_context = ""
+        associated_files = []
+        total_tokens = estimate_tokens(user_message)
+        
+        if file_ids and request.user.is_authenticated:
+            for file_id in file_ids:
+                try:
+                    file_obj = UploadedFile.objects.get(id=file_id, user=request.user)
+                    associated_files.append(file_obj)
+                    
+                    # Extract text content from the file
+                    file_content = extract_file_content(file_obj)
+                    
+                    if file_content:
+                        # Estimate tokens for this file content
+                        file_tokens = estimate_tokens(file_content)
+                        
+                        # Check if adding this would exceed our limit
+                        if total_tokens + file_tokens > MAX_TOTAL_TOKENS:
+                            # Truncate content to fit within limits if possible
+                            if file_tokens > 100:  # Only truncate if it's worth it
+                                max_chars = (MAX_TOTAL_TOKENS - total_tokens) * 4
+                                file_content = file_content[:max_chars] + "...[content truncated due to length]"
+                                file_tokens = estimate_tokens(file_content)
+                            
+                        # Update total tokens and add to context
+                        total_tokens += file_tokens
+                        file_context += f"\nContent from file '{file_obj.file.name}':\n{file_content}\n"
+                        
+                        # If we've used up our token budget, stop processing files
+                        if total_tokens >= MAX_FILE_TOKENS:
+                            file_context += "\n[Additional files were not processed due to length constraints]"
+                            break
+                            
+                except UploadedFile.DoesNotExist:
+                    continue
+        
+        # Prepare enhanced prompt with file context
+        enhanced_message = user_message
+        if file_context:
+            enhanced_message = f"The user asked: {user_message}\n\nI'm also providing content from files they uploaded to help answer their question:{file_context}\n\nBased on this information, please respond to their question."
+        
+        response_text = get_groq_response(enhanced_message)
         
         # Save to database if user is authenticated
         if request.user.is_authenticated:
             try:
-                ChatMessage.objects.create(
+                chat_msg = ChatMessage.objects.create(
                     user=request.user,
                     message=user_message,
                     response=response_text
                 )
-            except Exception:
+                # Associate files with this chat message
+                if associated_files:
+                    chat_msg.files.add(*associated_files)
+            except Exception as e:
+                logger.error(f"Error saving chat message: {str(e)}")
                 # Continue even if saving fails
                 pass
         
@@ -291,6 +518,7 @@ def chatbot_api(request):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON format"}, status=400)
     except Exception as e:
+        logger.error(f"Error in chatbot API: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
 
 

@@ -7,10 +7,11 @@ CATEGORY_CHOICES = [
     ("assignments", "Assignments"),
     ("class_notes", "Class Notes"),
     ("syllabus", "Syllabus"),
+    ("chatbot_files", "Chatbot Files"),
 ]
 
 # Create dedicated GCS storage instance with signing disabled
-gcs_storage = GoogleCloudStorage(credentials=None)
+gcs_storage = GoogleCloudStorage(credentials=None, querystring_auth=False)
 
 def upload_to_gcs(instance, filename):
     # This creates a clean path directly in the user's folder
@@ -30,6 +31,7 @@ class ChatMessage(models.Model):
     message = models.TextField()
     response = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    files = models.ManyToManyField(UploadedFile, blank=True, related_name='chat_messages')
     
     class Meta:
         ordering = ['-created_at']

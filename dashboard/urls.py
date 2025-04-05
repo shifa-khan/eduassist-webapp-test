@@ -27,6 +27,9 @@ urlpatterns = [
     path('api/chatbot/', views.chatbot_api, name='chatbot_api'),
     path('api/chat-history/', views.chat_history, name='chat_history'),
 
+    # chat file uploads
+    path('api/upload-chat-file/', views.upload_chat_file, name='upload_chat_file'),
+
 ]
 
 

@@ -148,7 +148,15 @@
             Hello! I'm your EduAssist chatbot. How can I help you today with your coursework?
         </div>
     </div>
+    <div class="chat-file-upload">
+        <input type="file" id="chat-file-input" style="display: none;">
+        <div id="selected-chat-files" class="selected-files-list"></div>
+        <div id="file-upload-error" class="file-error" style="display: none;"></div>
+    </div>
     <div id="chatbot-input">
+        <button id="chatbot-attach-file" type="button">
+            <i class="fas fa-paperclip"></i>
+        </button>
         <input type="text" id="chatbot-user-input" placeholder="Type a message...">
         <button id="chatbot-send"><i class="fas fa-paper-plane"></i></button>
     </div>
